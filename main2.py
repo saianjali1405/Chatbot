@@ -6,7 +6,7 @@ from flask import request
 from flask_cors import CORS
 from flask import render_template  
 
-client = genai.Client(api_key='AIzaSyC6Qn_qZPBnkiSFBnYf9yWwk-j09RyirhQ')
+client = genai.Client(api_key='')
 
 app = Flask(__name__)
 CORS(app)
@@ -30,3 +30,4 @@ def chat():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
