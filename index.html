@@ -1,0 +1,259 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat Interface</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for a modern look -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Custom Scrollbar */
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Message Bubbles Animation */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-anim {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+
+        /* Typing Indicator dots */
+        .dot {
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .dot:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .dot:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+
+        @keyframes bounce {
+
+            0%,
+            80%,
+            100% {
+                transform: scale(0);
+            }
+
+            40% {
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 h-screen flex flex-col items-center justify-center p-4">
+
+    <!-- Main Chat Container -->
+    <div
+        class="w-full max-w-2xl bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col h-[85vh] border border-gray-100">
+
+        <!-- Header -->
+        <div class="bg-white border-b border-gray-100 p-4 flex items-center justify-between sticky top-0 z-10">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-md">
+                    AI
+                </div>
+                <div>
+                    <h1 class="font-semibold text-gray-800">Gemini Assistant</h1>
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                        <span class="text-xs text-gray-500">Online</span>
+                    </div>
+                </div>
+            </div>
+            <button onclick="clearChat()"
+                class="text-gray-400 hover:text-red-500 transition-colors text-sm font-medium">
+                Clear Chat
+            </button>
+        </div>
+
+        <!-- Chat Area -->
+        <div id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50 scroll-smooth">
+
+            <!-- Welcome Message -->
+            <div class="flex gap-3 message-anim">
+                <div
+                    class="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-600 flex-shrink-0 flex items-center justify-center text-white text-xs">
+                    AI</div>
+                <div
+                    class="bg-white border border-gray-100 text-gray-700 p-3 rounded-2xl rounded-tl-none shadow-sm max-w-[80%]">
+                    <p class="text-sm leading-relaxed">Hello! I am connected to your Flask backend. How can I help you
+                        today?</p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Input Area -->
+        <div class="p-4 bg-white border-t border-gray-100">
+            <form id="chat-form" class="flex gap-2 items-end relative">
+                <div class="relative flex-1">
+                    <input type="text" id="user-input"
+                        class="w-full bg-gray-100 text-gray-800 border-0 rounded-xl px-4 py-3.5 pr-12 focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all outline-none placeholder-gray-400"
+                        placeholder="Type a message..." autocomplete="off">
+                </div>
+                <button type="submit"
+                    class="bg-blue-600 hover:bg-blue-700 text-white rounded-xl p-3.5 shadow-lg shadow-blue-500/30 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    id="send-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path
+                            d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                    </svg>
+                </button>
+            </form>
+            <p class="text-center text-xs text-gray-400 mt-2">Powered by Google Gen AI</p>
+        </div>
+    </div>
+
+    <script>
+        const chatForm = document.getElementById('chat-form');
+        const userInput = document.getElementById('user-input');
+        const chatContainer = document.getElementById('chat-container');
+        const sendBtn = document.getElementById('send-btn');
+
+        // Backend URL - Assuming running locally on port 5000
+        const API_URL = 'http://127.0.0.1:5000/chat';
+
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            // 1. Add User Message
+            addMessage(message, 'user');
+            userInput.value = '';
+
+            // 2. Show Loading State
+            const loadingId = addLoadingIndicator();
+            setLoading(true);
+
+            try {
+                // 3. Send to Backend
+                // Note: Even though backend currently ignores the body, we send it for future compatibility
+                const response = await fetch(API_URL, {
+                    method: 'POST', // Using POST as defined in backend methods=['GET', 'POST']
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+
+                if (!response.ok) throw new Error('Network response was not ok');
+
+                // 4. Get Text Response (Backend returns raw text, not JSON)
+                const data = await response.text();
+
+                // 5. Remove Loading & Add Bot Message
+                removeLoading(loadingId);
+                addMessage(data, 'bot');
+
+            } catch (error) {
+                removeLoading(loadingId);
+                addMessage("Error: Could not connect to the backend. Make sure Flask is running!", 'error');
+                console.error('Error:', error);
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        function addMessage(text, sender) {
+            const div = document.createElement('div');
+            div.className = `flex gap-3 message-anim ${sender === 'user' ? 'flex-row-reverse' : ''}`;
+
+            const avatar = sender === 'user'
+                ? `<div class="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0 flex items-center justify-center text-gray-500"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" /></svg></div>`
+                : `<div class="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-600 flex-shrink-0 flex items-center justify-center text-white text-xs">AI</div>`;
+
+            const bubbleClass = sender === 'user'
+                ? 'bg-blue-600 text-white rounded-2xl rounded-tr-none shadow-md shadow-blue-500/20'
+                : sender === 'error'
+                    ? 'bg-red-50 text-red-600 border border-red-100 rounded-2xl'
+                    : 'bg-white border border-gray-100 text-gray-700 rounded-2xl rounded-tl-none shadow-sm';
+
+            div.innerHTML = `
+                ${avatar}
+                <div class="${bubbleClass} p-3 max-w-[80%] text-sm leading-relaxed overflow-hidden">
+                    ${escapeHtml(text)}
+                </div>
+            `;
+
+            chatContainer.appendChild(div);
+            scrollToBottom();
+        }
+
+        function addLoadingIndicator() {
+            const id = 'loading-' + Date.now();
+            const div = document.createElement('div');
+            div.id = id;
+            div.className = 'flex gap-3 message-anim';
+            div.innerHTML = `
+                <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-600 flex-shrink-0 flex items-center justify-center text-white text-xs">AI</div>
+                <div class="bg-white border border-gray-100 p-4 rounded-2xl rounded-tl-none shadow-sm flex gap-1 items-center h-10">
+                    <div class="w-2 h-2 bg-gray-400 rounded-full dot"></div>
+                    <div class="w-2 h-2 bg-gray-400 rounded-full dot"></div>
+                    <div class="w-2 h-2 bg-gray-400 rounded-full dot"></div>
+                </div>
+            `;
+            chatContainer.appendChild(div);
+            scrollToBottom();
+            return id;
+        }
+
+        function removeLoading(id) {
+            const el = document.getElementById(id);
+            if (el) el.remove();
+        }
+
+        function setLoading(isLoading) {
+            sendBtn.disabled = isLoading;
+            userInput.disabled = isLoading;
+            if (!isLoading) userInput.focus();
+        }
+
+        function scrollToBottom() {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function clearChat() {
+            chatContainer.innerHTML = '';
+            addMessage("Chat cleared. Ready for new questions!", 'bot');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+
+</html>
